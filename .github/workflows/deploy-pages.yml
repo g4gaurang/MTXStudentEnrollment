@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - cursor/build-enrollment-prototype-3202
   workflow_dispatch:
 
 permissions:

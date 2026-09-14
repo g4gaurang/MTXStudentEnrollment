@@ -10,6 +10,7 @@
 * [x] Install dependencies, lint, type-check, build, and validate repository content.
 * [x] Test desktop, tablet, mobile, keyboard interactions, modal focus, and reduced motion.
 * [x] Commit, push, and register the pull request and deployment status.
+* [ ] Publish the feature branch through GitHub Pages and verify the public URL.
 
 ## Review
 
