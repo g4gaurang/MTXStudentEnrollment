@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { FormEvent, lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import {
   Activity,
   AlertCircle,
@@ -35,20 +35,6 @@ import {
   X,
 } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
   architecture,
   automationSteps,
   capabilityGroups,
@@ -61,6 +47,8 @@ import {
   settings,
   staffApplications,
 } from './data'
+
+const AnalyticsChart = lazy(() => import('./AnalyticsChart'))
 
 const navItems = [
   ['Product', 'product'],
@@ -638,9 +626,9 @@ function StaffWorkspace() {
         <div className="staff-body">
           <aside className="staff-queue">
             <div className="queue-controls">
-              <label><Search /><span className="sr-only">Search queue</span><input placeholder="Search applications" /></label>
-              <label><Filter /><span className="sr-only">Filter by status</span>
-                <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <label htmlFor="queue-search"><Search /><span className="sr-only">Search queue</span><input id="queue-search" name="queue-search" autoComplete="off" placeholder="Search applications" /></label>
+              <label htmlFor="queue-filter"><Filter /><span className="sr-only">Filter by status</span>
+                <select id="queue-filter" name="queue-filter" autoComplete="off" value={filter} onChange={(event) => setFilter(event.target.value)}>
                   <option>Any status</option><option>Needs review</option><option>Missing item</option><option>Exception</option>
                 </select>
               </label>
@@ -694,7 +682,7 @@ function StaffWorkspace() {
                   </ReviewCard>
                   <ReviewCard title="Reviewer note" icon={<MessageSquare />}>
                     <label htmlFor="review-note">Add a fictional internal note</label>
-                    <textarea id="review-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Record relevant review context…" />
+                    <textarea id="review-note" name="review-note" autoComplete="off" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Record relevant review context…" />
                     <button className="button small" type="button" disabled={!note.trim()} onClick={() => { setNotes([...notes, note.trim()]); setNote('') }}>Add note</button>
                     {notes.map((item, index) => <p className="saved-note" key={`${item}-${index}`}><Check />Note recorded: {item}</p>)}
                   </ReviewCard>
@@ -740,7 +728,6 @@ function Automation() {
 function Analytics() {
   const [view, setView] = useState<keyof typeof analyticsData>('journey')
   const data = analyticsData[view]
-  const colors = ['#1675e5', '#22a59a', '#f2a93b', '#7a68d4', '#ef6a6a']
   return (
     <Section
       id="analytics"
@@ -753,7 +740,7 @@ function Analytics() {
       <div className="analytics-shell">
         <div className="analytics-head">
           <div><p className="detail-kicker">Enrollment overview</p><h3>Fall enrollment period</h3></div>
-          <label>View period<select aria-label="View period"><option>Current period</option><option>Prior period</option></select></label>
+          <label htmlFor="analytics-period">View period<select id="analytics-period" name="analytics-period" autoComplete="off"><option>Current period</option><option>Prior period</option></select></label>
         </div>
         <div className="analytics-tabs" role="tablist" aria-label="Analytics views">
           {(Object.keys(analyticsData) as (keyof typeof analyticsData)[]).map((key) => <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}>{analyticsData[key].label}</button>)}
@@ -766,18 +753,9 @@ function Analytics() {
         <div className="chart-panel">
           <div className="chart-heading"><div><p className="detail-kicker">{data.label}</p><h4>{view === 'journey' ? 'Enrollment funnel' : view === 'operations' ? 'Applications by stage' : 'Demand by program'}</h4></div><span><Activity />Illustrative period</span></div>
           <div className="chart-wrap" aria-hidden="true">
-            <ResponsiveContainer width="100%" height={280}>
-              {view === 'journey' ? (
-                <AreaChart data={data.chart} margin={{ left: 8, right: 8 }}>
-                  <defs><linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1675e5" stopOpacity={0.38} /><stop offset="100%" stopColor="#1675e5" stopOpacity={0.03} /></linearGradient></defs>
-                  <CartesianGrid vertical={false} stroke="#e7edf4" /><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis tickLine={false} axisLine={false} /><Tooltip /><Area type="monotone" dataKey="value" stroke="#1675e5" strokeWidth={3} fill="url(#areaFill)" />
-                </AreaChart>
-              ) : view === 'operations' ? (
-                <BarChart data={data.chart}><CartesianGrid vertical={false} stroke="#e7edf4" /><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis tickLine={false} axisLine={false} /><Tooltip /><Bar dataKey="value" fill="#1675e5" radius={[6, 6, 0, 0]} /></BarChart>
-              ) : (
-                <PieChart><Pie data={data.chart} dataKey="value" nameKey="name" innerRadius={62} outerRadius={104} paddingAngle={3}>{data.chart.map((entry, index) => <Cell key={entry.name} fill={colors[index]} />)}</Pie><Tooltip /></PieChart>
-              )}
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="chart-loading"><RefreshCw className="spin" />Preparing chart…</div>}>
+              <AnalyticsChart view={view} data={data.chart} />
+            </Suspense>
           </div>
           <p className="chart-summary"><strong>Text summary:</strong> {data.summary}</p>
         </div>
@@ -881,7 +859,7 @@ function ConfigurationStudio() {
             <div className="config-card">
               <strong>Applicant checklist</strong>
               <p>Required items can vary by applicant, pathway, period, or program.</p>
-              {setting.checklist.map((item, index) => <div className="config-item" key={item}><span>{index + 1}</span><strong>{item}</strong><label className="switch"><input type="checkbox" defaultChecked /><span /><i className="sr-only">Required</i></label></div>)}
+              {setting.checklist.map((item, index) => <div className="config-item" key={item}><span>{index + 1}</span><strong>{item}</strong><label className="switch"><input id={`${setting.id}-required-${index}`} name={`${setting.id}-required-${index}`} type="checkbox" defaultChecked /><span /><i className="sr-only">Mark {item} as required</i></label></div>)}
               <button type="button" className="add-config">+ Add checklist item</button>
             </div>
             <div className="config-card">
@@ -979,6 +957,7 @@ function DemoModal({ close }: { close: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const [submitted, setSubmitted] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [invalidEmail, setInvalidEmail] = useState(false)
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -1004,14 +983,21 @@ function DemoModal({ close }: { close: () => void }) {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     const required = ['name', 'institution', 'email', 'role', 'setting', 'volume', 'environment', 'challenge']
     const missing = required.filter((field) => !String(form.get(field) ?? '').trim())
-    if (missing.length) {
-      setErrors(missing)
+    const email = String(form.get('email') ?? '').trim()
+    const emailIsInvalid = Boolean(email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const formErrors = emailIsInvalid ? [...missing, 'email'] : missing
+    if (formErrors.length) {
+      setErrors(formErrors)
+      setInvalidEmail(emailIsInvalid)
+      window.requestAnimationFrame(() => formElement.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       return
     }
     setErrors([])
+    setInvalidEmail(false)
     setSubmitted(true)
   }
 
@@ -1029,17 +1015,17 @@ function DemoModal({ close }: { close: () => void }) {
         ) : (
           <>
             <div className="modal-heading"><p className="eyebrow">Request a product demonstration</p><h2 id={titleId}>Tell us about your enrollment environment.</h2><p>Fields marked required help shape a relevant discussion.</p></div>
-            {errors.length > 0 && <div className="form-error" role="alert"><AlertCircle /><span><strong>Please complete the required fields.</strong>Missing fields are identified below.</span></div>}
+            {errors.length > 0 && <div className="form-error" role="alert"><AlertCircle /><span><strong>Please review the identified fields.</strong>Each message explains what to enter or select.</span></div>}
             <form onSubmit={submit} noValidate>
-              <Field label="Name" name="name" error={errors.includes('name')} />
-              <Field label="Institution or agency" name="institution" error={errors.includes('institution')} />
-              <Field label="Work email" name="email" type="email" error={errors.includes('email')} />
-              <Field label="Role" name="role" error={errors.includes('role')} />
+              <Field label="Name" name="name" autoComplete="name" error={errors.includes('name')} />
+              <Field label="Institution or agency" name="institution" autoComplete="organization" error={errors.includes('institution')} />
+              <Field label="Work email" name="email" type="email" autoComplete="email" error={errors.includes('email')} errorText={invalidEmail ? 'Enter a valid work email, such as name@example.org.' : undefined} />
+              <Field label="Role" name="role" autoComplete="organization-title" error={errors.includes('role')} />
               <SelectField label="Education setting" name="setting" error={errors.includes('setting')} options={['K–12 and public education', 'Higher education', 'Continuing and workforce education', 'Education agency or program']} />
               <SelectField label="Approximate annual application volume" name="volume" error={errors.includes('volume')} options={['Fewer than 1,000', '1,000–4,999', '5,000–19,999', '20,000 or more', 'Not yet known']} />
-              <Field label="Current enrollment environment" name="environment" error={errors.includes('environment')} />
+              <Field label="Current enrollment environment" name="environment" autoComplete="off" error={errors.includes('environment')} />
               <SelectField label="Primary enrollment challenge" name="challenge" error={errors.includes('challenge')} options={challenges.map((item) => item.title)} />
-              <label className="form-field full"><span>Optional message</span><textarea name="message" rows={4} /></label>
+              <label className="form-field full" htmlFor="message"><span>Optional message</span><textarea id="message" name="message" autoComplete="off" rows={4} /></label>
               <p className="form-privacy full"><LockKeyhole />Prototype only. Information is processed in your browser for the confirmation state and is not sent or retained.</p>
               <div className="modal-actions full"><button className="button secondary" type="button" onClick={close}>Cancel</button><button className="button" type="submit">Complete Demo Request <ArrowRight /></button></div>
             </form>
@@ -1050,12 +1036,12 @@ function DemoModal({ close }: { close: () => void }) {
   )
 }
 
-function Field({ label, name, type = 'text', error }: { label: string; name: string; type?: string; error: boolean }) {
-  return <label className={`form-field ${error ? 'has-error' : ''}`}><span>{label} <b aria-hidden="true">*</b></span><input name={name} type={type} aria-invalid={error} aria-describedby={error ? `${name}-error` : undefined} />{error && <small id={`${name}-error`}>This field is required.</small>}</label>
+function Field({ label, name, type = 'text', autoComplete, error, errorText }: { label: string; name: string; type?: string; autoComplete: string; error: boolean; errorText?: string }) {
+  return <label className={`form-field ${error ? 'has-error' : ''}`} htmlFor={name}><span>{label} <b aria-hidden="true">*</b></span><input id={name} name={name} type={type} autoComplete={autoComplete} aria-invalid={error} aria-describedby={error ? `${name}-error` : undefined} />{error && <small id={`${name}-error`}>{errorText ?? 'This field is required.'}</small>}</label>
 }
 
 function SelectField({ label, name, options, error }: { label: string; name: string; options: string[]; error: boolean }) {
-  return <label className={`form-field ${error ? 'has-error' : ''}`}><span>{label} <b aria-hidden="true">*</b></span><select name={name} defaultValue="" aria-invalid={error} aria-describedby={error ? `${name}-error` : undefined}><option value="" disabled>Select an option</option>{options.map((option) => <option key={option}>{option}</option>)}</select>{error && <small id={`${name}-error`}>Choose an option.</small>}</label>
+  return <label className={`form-field ${error ? 'has-error' : ''}`} htmlFor={name}><span>{label} <b aria-hidden="true">*</b></span><select id={name} name={name} autoComplete="off" defaultValue="" aria-invalid={error} aria-describedby={error ? `${name}-error` : undefined}><option value="" disabled>Select an option</option>{options.map((option) => <option key={option}>{option}</option>)}</select>{error && <small id={`${name}-error`}>Choose an option.</small>}</label>
 }
 
 function Footer() {
